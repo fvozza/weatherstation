@@ -3,9 +3,12 @@
     "author": "Francesco Vozza <fvozza@gmail.com>",
     "description": "Playing with IoT",
     "version": "0.0.1",
+    "scripts": {
+    "start": "node ws.js"
+    },
     "dependencies": {
-        "restify": "latest",
-        "socket.io": "latest",
-        "mongodb": "latest"
+        "restify": "*",
+        "socket.io": "*",
+        "mongodb": "*"
     }
 }
