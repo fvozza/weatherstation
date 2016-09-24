@@ -6,5 +6,5 @@ RUN npm install -g restify socket.io mongodb
 
 
 # replace this with your application's default port
-EXPOSE 80
+EXPOSE 8080
 RUN touch /root/__BUILD_OK__.txt
