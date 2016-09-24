@@ -1,0 +1,11 @@
+{
+    "name": "weatherstation",
+    "author": "Francesco Vozza <fvozza@gmail.com>",
+    "description": "Playing with IoT",
+    "version": "0.0.1",
+    "dependencies": {
+        "restify": "latest",
+        "socket.io": "latest",
+        "mongodb": "latest"
+    }
+}
