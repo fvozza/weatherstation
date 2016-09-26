@@ -193,6 +193,12 @@ function handleSenses(senses, time){
         pushData["pressure"] = currentPressure;
         storeSensesData("pressure", "pressure", currentPressure, time);  
       }
+      else if (senses[i].sId == '0x00060300' ){ // Luminance data
+        console.log("The measured Luminance  is " + senses[i].val); // remove this
+        currentLuminance = Math.round( senses[i].val * 10 ) / 10; // rounding with one decimal
+        pushData["luminance"] = currentLuminance;
+        storeSensesData("luminance", "luminance", currentLuminance, time);  
+      }
       else if (senses[i].sId == '0x00030200' ){ // Battery level data
         console.log("The measured battery level is " + senses[i].val); // remove this
         currentBattery = senses[i].val;
@@ -318,7 +324,7 @@ server.post('/', function (req, res, next) {
     var ss = addZero(time.getSeconds());
     var consoleTime = hh + ":" + mm + ":" + ss; 
     
-    console.log('got IOT message from Lutikka. Timestamp ' + consoleTime); // remove this
+    console.log('Got IOT message from Thingsee One. Timestamp ' + consoleTime); // remove this
     if (timerId != 0){
       clearTimeout(timerId); // stop the timer, Thingsee is online
       timerId = setTimeout(timerExpired, 30*60*1000); // set a new timer with 30 minutes 
