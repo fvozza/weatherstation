@@ -1,3 +1,5 @@
+/*jslint node: true */
+
 "use strict";
 var restify = require("restify");
 var server = restify.createServer({
@@ -6,17 +8,33 @@ var server = restify.createServer({
 });
 
 var https = require("https");
-var socketio  = require ("socket.io");
-var config = require ("./config/configuration.js");
+var socketio  = require("socket.io");
+var config = require("./config/configuration.js");
 
 // MongoDB
 var MongoClient = require('mongodb').MongoClient;
 var assert = require('assert');
 var db;
 
-server.use(restify.bodyParser());
+var senses = {
+    "temperature": "0x00060100",
+    "humidity": "0x00060200",
+    "luminance": "0x00060300",
+    "pressure": "0x00060400",
+    "battery_level": "0x00030200",
+    "latitude": "0x00010100",
+    "longitude": "0x00010200"
+};
 
-// REMOVE THESE?? Needed for enabling CORS and needed for allowing cross-origin resource sharing 
+//const SENSEID_TEMP = {"senseId": "0x00060100", "name": "temperature"};
+//const SENSEID_HUMIDITY = {"senseId": "0x00060200", "name": "humidity"};
+//const SENSEID_LUMINANCE = {"senseId": "0x00060300", "name": "luminance"};
+//const SENSEID_PRESSURE = {"senseId": "0x00060400", "name": "pressure"};
+//const SENSEID_BATTERY_LEVEL = {"senseId": "0x00030200", "name": "battery_level"};
+//const SENSEID_LAT = {"senseid": "0x00010100", "name": "latitude"};
+//const SENSEID_LONG = {"senseid": "0x00010200", "name": "longiture"};
+
+server.use(restify.bodyParser());
 server.use(restify.CORS());
 server.use(restify.fullResponse());
 
@@ -27,15 +45,19 @@ var io = socketio.listen(server.server);
 var timerId = 0; // init
 var offlineWarningGiven = false;
 
-var storeSensesData = function(collection,sense, value, timestamp) {
+function getKeyByValue(object, value) {
+  return Object.keys(object).find(key => object[key] === value);
+}
+
+var storeSensesData = function(collection, sense, value, timestamp) {
    var senseData = {};
    senseData["time"] = timestamp;
    senseData[sense]  = value;  
    db.collection(collection).insert(senseData, function(err, result) {
       assert.equal(err, null);
-      console.log("stored senses data into the database for " + collection + " collection");
+      //console.log("stored senses data into the database for " + collection + " collection");
   });
-}
+};
 
 function timerExpired(){
   console.log("Thingsee IOT device is offline or sending failed");
@@ -166,7 +188,31 @@ function pushMeasuredData(data){
   io.emit('PushData', JSON.stringify(data));  // send data to browser
 }
 
+function addZero(i) { // adds leading zero to timestamp to get double digit figure
+if (i < 10) {
+      i = "0" + i;
+    }
+    return i;
+}
+
 function handleSenses(senses, time){
+    var pushData = {};  // init
+    for (var i=0; i<senses.length; i++){
+        sId = senses[i].sId;
+        val = Math.round(senses[i].val * 10) / 10;
+        sName = getKeyByValue(senses, sId);
+        storeSensesData(sName, sName, val, time);
+        pushData[sName] = val;
+        
+        var hh = addZero(time.getHours());
+        var mm = addZero(time.getMinutes());
+        var ss = addZero(time.getSeconds());
+        var consoleTime = hh + ":" + mm + ":" + ss; 
+        console.log("[%s] %O", consoleTime, pushData);
+    }
+}
+
+function _handleSenses(senses, time){
     var currentTemp = 0; // init
     var currentPressure = 0; // init
     var currentHumidity = 0; // init
@@ -174,32 +220,32 @@ function handleSenses(senses, time){
     var chargerConnected = false; // init
     var pushData = {};  // init
     for (var i=0; i<senses.length; i++){ // go through all the senses data
-      if (senses[i].sId == '0x00060100' ){ // temperature data
-        console.log("The measured temperature is " + senses[i].val); // remove this
+      if (senses[i].sId == SENSEID_TEMP ){ // temperature data
+        //console.log("The measured temperature is " + senses[i].val); // remove this
         currentTemp = Math.round( senses[i].val * 10 ) / 10; // rounding with one decimal
-        pushData["temp"] = currentTemp;
+        pushData    ["temp"] = currentTemp;
         pushData["time"] = time;
         storeSensesData("temperature", "temp", currentTemp, time);   
       }
-      else if (senses[i].sId == '0x00060200' ){ // Humidity data
+      else if (senses[i].sId == SENSEID_HUMIDITY ){ // Humidity data
         console.log("The measured Humidity is " + senses[i].val); // remove this
         currentHumidity = Math.round( senses[i].val * 10 ) / 10; // rounding with one decimal
         pushData["humidity"] = currentHumidity;
         storeSensesData("humidity", "humidity", currentHumidity, time);   
       }
-      else if (senses[i].sId == '0x00060400' ){ // Air pressure data
+      else if (senses[i].sId == SENSEID_LUMINANCE ){ // Luminance data
+        console.log("The measured Luminance is " + senses[i].val); // remove this
+        currentLuminance = Math.round( senses[i].val * 10 ) / 10; // rounding with one decimal
+        pushData["luminance"] = currentLuminance;
+        storeSensesData("luminance", "luminance", currentLuminance, time);  
+      }
+      else if (senses[i].sId == SENSEID_PRESSURE ){ // Air pressure data
         console.log("The measured Air pressure is " + senses[i].val); // remove this
         currentPressure = Math.round( senses[i].val * 10 ) / 10; // rounding with one decimal
         pushData["pressure"] = currentPressure;
         storeSensesData("pressure", "pressure", currentPressure, time);  
       }
-      else if (senses[i].sId == '0x00060300' ){ // Luminance data
-        console.log("The measured Luminance  is " + senses[i].val); // remove this
-        currentLuminance = Math.round( senses[i].val * 10 ) / 10; // rounding with one decimal
-        pushData["luminance"] = currentLuminance;
-        storeSensesData("luminance", "luminance", currentLuminance, time);  
-      }
-      else if (senses[i].sId == '0x00030200' ){ // Battery level data
+      else if (senses[i].sId == SENSEID_BATTERY_LEVEL ){ // Battery level data
         console.log("The measured battery level is " + senses[i].val); // remove this
         currentBattery = senses[i].val;
         pushData["battery"] = currentBattery;
@@ -243,27 +289,6 @@ function handleSenses(senses, time){
         console.dir(senses[i]);
       }
     }
-    pushMeasuredData(pushData); // send data to browser
-    if (counter == randomNumber){
-      // time to write to the Facebook feed
-      var feedInd = randomize(0, feedStatus.length-1);
-      var string = feedStatus[feedInd]+"Temperature is "+pushData.temp+" Celsius, humidity reading is "+pushData.humidity+"% and air pressure is " +pushData.pressure+" hPA";
-      // make a new lottery
-      var min = 6*12; // 12 hours
-      var max = 6*24; // 24 hours
-      randomNumber = randomize(min, max);
-      counter = 0;
-    }
-    else {
-      counter++;
-    } 
-}
-
-function addZero(i) { // adds leading zero to timestamp to get double digit figure
-if (i < 10) {
-      i = "0" + i;
-    }
-    return i;
 }
 
 // connect to the database
@@ -272,11 +297,11 @@ var ObjectId = require('mongodb').ObjectID;
 MongoClient.connect(url, function(err, database) {
   assert.equal(null, err);
   db = database;
-  console.log("Connected correctly to the database.");
+  console.log("Connected correctly to the database [%s].", url);
 });
 
-// start a timer on nodejs start-up to check if the Thingsee is sending a measurement within 11 minutes
-var timerId = setTimeout(timerExpired, 11*60*1000); 
+// start a timer on nodejs start-up to check if the Thingsee is sending a measurement within 31 minutes
+var timerId = setTimeout(timerExpired, 31*60*1000); 
 
 //REST API implementation for getting the initial temperature data to be shown in the UI
 server.post('/getSensesData', function (req, res, next) {
@@ -319,15 +344,11 @@ server.post('/battery', function (req, res, next) {
 // REST API implementation for handling the push messages from the Thingsee IOT
 server.post('/', function (req, res, next) {
     var time = new Date();
-    var hh = addZero(time.getHours());
-    var mm = addZero(time.getMinutes());
-    var ss = addZero(time.getSeconds());
-    var consoleTime = hh + ":" + mm + ":" + ss; 
     
-    console.log('Got IOT message from Thingsee One. Timestamp ' + consoleTime); // remove this
+    //console.log('Got IOT message from Thingsee One. Timestamp ' + consoleTime); // remove this
     if (timerId != 0){
       clearTimeout(timerId); // stop the timer, Thingsee is online
-      timerId = setTimeout(timerExpired, 30*60*1000); // set a new timer with 30 minutes 
+      timerId = setTimeout(timerExpired, 31*60*1000); // set a new timer with 31 minutes 
     }
     handleSenses(req.params[0].senses, time);
     if (offlineWarningGiven){ // Thingsee IOT device has been offline for a while
@@ -335,7 +356,7 @@ server.post('/', function (req, res, next) {
       var string = "The IOT device is back online. Measurements are being stored again.";
     }
 
-    res.send(Number(200)); // sen reply, otherwise Thingsee does not send next measurement normally
+    res.send(Number(200)); // send reply, otherwise Thingsee does not send next measurement normally
     next();
 });
 
